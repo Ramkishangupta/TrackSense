@@ -1,0 +1,74 @@
+/* frontend/src/index.css
+ * Global styles, Tailwind base, and custom design tokens.
+ * Design.md palette: slate-900 bg, blue-600 brand, emerald/amber/rose status.
+ */
+
+/* Google Fonts — must be first @import before Tailwind */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@import "tailwindcss";
+
+/* ── Design Tokens ──────────────────────────────────────────────────────── */
+:root {
+  --brand:        #2563EB;   /* blue-600  — primary brand / active tab      */
+  --bg-deep:      #0F172A;   /* slate-900 — controller dashboard background */
+  --bg-surface:   #1E293B;   /* slate-800 — cards, panels, modals           */
+  --bg-muted:     #334155;   /* slate-700 — borders, dividers               */
+  --text-primary: #F1F5F9;   /* slate-100 — main readable text              */
+  --text-muted:   #94A3B8;   /* slate-400 — secondary / placeholder text    */
+  --on-time:      #10B981;   /* emerald-500 — on-time status                */
+  --minor-delay:  #F59E0B;   /* amber-500  — minor delay status             */
+  --major-delay:  #F43F5E;   /* rose-500   — major delay / alert            */
+  --font-ui:      'Inter', system-ui, sans-serif;
+  --font-mono:    'JetBrains Mono', 'Courier New', monospace;
+}
+
+/* ── Base ───────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #root {
+  margin: 0; padding: 0;
+  height: 100%;
+  font-family: var(--font-ui);
+  background-color: var(--bg-deep);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Utility classes used across all components ─────────────────────────── */
+.font-mono { font-family: var(--font-mono); }
+
+/* Status badge colours */
+.status-on-time      { color: var(--on-time);     }
+.status-minor-delay  { color: var(--minor-delay);  }
+.status-major-delay  { color: var(--major-delay);  }
+
+/* Glassmorphism panel used on the map overlay */
+.glass-panel {
+  background: rgba(30, 41, 59, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(100, 116, 139, 0.3);
+  border-radius: 1rem;
+}
+
+/* Pulsing dot animation for train markers */
+@keyframes pulse-ring {
+  0%   { transform: scale(0.8); opacity: 1; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+.pulse-ring {
+  animation: pulse-ring 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Smooth fade-in for route content panels */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}
+.fade-in { animation: fade-in 0.25s ease-out; }
+
+/* Custom scrollbar — dark theme */
+::-webkit-scrollbar        { width: 6px; height: 6px; }
+::-webkit-scrollbar-track  { background: var(--bg-deep); }
+::-webkit-scrollbar-thumb  { background: var(--bg-muted); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #475569; }
