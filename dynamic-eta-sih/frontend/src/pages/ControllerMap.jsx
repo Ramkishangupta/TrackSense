@@ -323,8 +323,7 @@ export default function ControllerMap({ trains, connected, lastUpdate, refreshNo
       interactive: false,
       antialias:   true,
     });
-    map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
-    map.addControl(new maplibregl.ScaleControl({ unit: "metric" }),            "bottom-left");
+    // Controls removed as per user request
     map.on("style.load", () => map.resize());
     mapRef.current = map;
     const ro = new ResizeObserver(() => map.resize());

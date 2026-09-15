@@ -50,8 +50,7 @@ function Sidebar({ connected, lastUpdate, trains }) {
           <Activity size={18} className="text-white" />
         </div>
         <div>
-          <p className="text-sm font-black text-slate-800 leading-tight tracking-tight">TrackSense</p>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">SIH 2026</p>
+          <h1 className="text-xl font-bold tracking-tight text-slate-900 leading-none">TrackSense</h1>
         </div>
       </div>
 

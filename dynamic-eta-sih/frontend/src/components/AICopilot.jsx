@@ -16,6 +16,8 @@ import {
   MessageSquare, X, Send, Bot, User, Loader2,
   Sparkles, ChevronDown,
 } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 const PYTHON_URL = import.meta.env.VITE_PYTHON_URL || "http://localhost:8000";
 
@@ -36,9 +38,27 @@ function BotMessage({ text, timestamp }) {
       <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center shrink-0 mt-0.5 shadow-md shadow-blue-600/20">
         <Bot size={14} className="text-white" />
       </div>
-      <div>
-        <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-md px-4 py-3 text-sm text-slate-700 leading-relaxed shadow-sm whitespace-pre-wrap">
-          {text}
+      <div className="overflow-x-auto max-w-full">
+        <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-md px-4 py-3 text-sm text-slate-700 leading-relaxed shadow-sm">
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              table: ({node, ...props}) => <div className="overflow-x-auto my-3"><table className="border-collapse border border-slate-200 w-full text-left" {...props} /></div>,
+              th: ({node, ...props}) => <th className="border border-slate-200 bg-slate-50 px-3 py-2 font-semibold text-slate-800" {...props} />,
+              td: ({node, ...props}) => <td className="border border-slate-200 px-3 py-2" {...props} />,
+              h1: ({node, ...props}) => <h1 className="text-lg font-bold mt-4 mb-2 text-slate-900" {...props} />,
+              h2: ({node, ...props}) => <h2 className="text-base font-bold mt-4 mb-2 text-slate-900" {...props} />,
+              h3: ({node, ...props}) => <h3 className="text-sm font-bold mt-3 mb-2 text-slate-900" {...props} />,
+              ul: ({node, ...props}) => <ul className="list-disc pl-5 my-2 space-y-1" {...props} />,
+              ol: ({node, ...props}) => <ol className="list-decimal pl-5 my-2 space-y-1" {...props} />,
+              p: ({node, ...props}) => <p className="mb-2 last:mb-0" {...props} />,
+              a: ({node, ...props}) => <a className="text-blue-600 hover:underline" {...props} />,
+              strong: ({node, ...props}) => <strong className="font-semibold text-slate-900" {...props} />,
+              code: ({node, inline, ...props}) => inline ? <code className="bg-slate-100 text-rose-600 px-1 py-0.5 rounded text-xs" {...props} /> : <pre className="bg-slate-800 text-slate-50 p-3 rounded my-3 overflow-x-auto text-xs"><code {...props} /></pre>
+            }}
+          >
+            {text}
+          </ReactMarkdown>
         </div>
         {timestamp && (
           <p className="text-[10px] text-slate-400 mt-1 ml-1">{timestamp}</p>

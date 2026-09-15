@@ -105,9 +105,6 @@ export default function StationView({ trains, connected, lastUpdate, refreshNow 
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-black text-slate-800 tracking-tight">Station Master Dashboard</h1>
-          <p className="text-sm font-semibold text-slate-500 mt-1 flex items-center gap-2">
-            Kanpur Central <span className="bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider">CNB</span> — Live ETA Board
-          </p>
         </div>
         <div className="flex items-center gap-4">
           {lastUpdate && (
@@ -116,13 +113,6 @@ export default function StationView({ trains, connected, lastUpdate, refreshNow 
               {formatTime(lastUpdate)}
             </span>
           )}
-          <button
-            onClick={refreshNow}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-sm transition-colors"
-          >
-            <RefreshCw size={14} />
-            Refresh
-          </button>
         </div>
       </div>
 
