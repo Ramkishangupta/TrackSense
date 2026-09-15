@@ -76,9 +76,12 @@ ANOMALY_HALT_PROB: float = 0.03   # 3% → unscheduled_halt
 ANOMALY_SIGNAL_PROB: float = 0.02 # 2% → signal_halt
 ANOMALY_RESOLVE_PROB: float = 0.12 # 12% → resolve old event after 60s
 
-# Smart Dwell: ticks a train stays parked at the terminus before looping.
-# 30 ticks × 10s = 5 real minutes of congestion pile-up at CNB.
-DWELL_TICKS: int = 30
+# Smart Dwell: The actual real-time seconds a train stays parked at the terminus
+# before teleporting back to its origin.
+# 90 seconds allows enough time for trains to pile up at Kanpur to trigger the 
+# H3 congestion heatmap, but is short enough for a live demo reset cycle.
+DEMO_DWELL_TIME_SECONDS: int = int(os.getenv("DEMO_DWELL_TIME_SECONDS", 90))
+DWELL_TICKS: int = max(1, DEMO_DWELL_TIME_SECONDS // TICK_INTERVAL)
 
 # FORCED DEMO EVENTS on Tick 1:
 # These guarantee the scenario described in phases.md is visible immediately.
@@ -485,7 +488,7 @@ def run_tick(session, trains: list, routes_map: dict, tick: int,
                 dwell_counters[tid] = 0
                 event_logs.append(
                     f"🅿️  ARRIVED (DWELL)   → Train {train_no} "
-                    f"at {terminus.station_code} — parking for {DWELL_TICKS} ticks"
+                    f"at {terminus.station_code} — parking for {DEMO_DWELL_TIME_SECONDS}s"
                 )
 
             dwell_counters[tid] += 1

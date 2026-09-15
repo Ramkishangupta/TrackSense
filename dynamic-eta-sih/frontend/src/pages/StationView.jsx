@@ -6,9 +6,25 @@
 
 import { useState, useMemo } from "react";
 import { ArrowUpDown, RefreshCw, Clock, TrendingUp, AlertTriangle, CheckCircle } from "lucide-react";
-import {
-  statusColorClass, statusLabel, formatDelay, formatTime,
+import { 
+  formatDelay, 
+  formatTime, 
+  statusColorClass, 
+  statusLabel 
 } from "../utils/statusHelpers";
+
+function getEtaClock(etaMin) {
+  if (etaMin == null) return "—";
+  const d = new Date(Date.now() + etaMin * 60000);
+  return d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false });
+}
+
+function getScheduledClock(etaMin, delayMin) {
+  if (etaMin == null) return "—";
+  const scheduledMin = etaMin - (delayMin || 0);
+  const d = new Date(Date.now() + scheduledMin * 60000);
+  return d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false });
+}
 
 // ── Summary cards ─────────────────────────────────────────────────────────────
 function SummaryCard({ label, value, icon: Icon, color }) {
@@ -134,11 +150,11 @@ export default function StationView({ trains, connected, lastUpdate, refreshNow 
               <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500">Type</th>
               <SortTh field="current_speed">Speed</SortTh>
               <SortTh field="delay_minutes">Delay</SortTh>
-              <SortTh field="total_eta_min">ETA (min)</SortTh>
-              <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500">Arrival</th>
+              <SortTh field="total_eta_min">Expected (ETA)</SortTh>
+              <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500">Scheduled</th>
               <SortTh field="status">Status</SortTh>
               <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500">Event</th>
-              <SortTh field="congestion_count">Congestion</SortTh>
+              <SortTh field="remaining_km">Distance</SortTh>
             </tr>
           </thead>
           <tbody>
@@ -172,11 +188,11 @@ export default function StationView({ trains, connected, lastUpdate, refreshNow 
                   }`}>
                     {formatDelay(t.delay_minutes, t.status)}
                   </td>
-                  <td className="px-4 py-3 font-mono text-slate-700 font-bold whitespace-nowrap">
-                    {t.total_eta_min != null ? `${Math.round(t.total_eta_min)} min` : "—"}
+                  <td className={`px-4 py-3 font-mono font-bold whitespace-nowrap ${t.delay_minutes > 0 ? 'text-red-600' : 'text-slate-700'}`}>
+                    {getEtaClock(t.total_eta_min)}
                   </td>
                   <td className="px-4 py-3 font-mono text-slate-600 font-medium whitespace-nowrap">
-                    {formatTime(t.expected_arrival)}
+                    {getScheduledClock(t.total_eta_min, t.delay_minutes)}
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap">
                     <StatusBadge status={t.status} />
@@ -184,12 +200,8 @@ export default function StationView({ trains, connected, lastUpdate, refreshNow 
                   <td className="px-4 py-3 whitespace-nowrap">
                     <AnomalyBadge event={t.anomaly_event} />
                   </td>
-                  <td className="px-4 py-3 font-mono text-center whitespace-nowrap">
-                    {t.congestion_count > 1 ? (
-                      <span className="text-amber-600 font-bold bg-amber-50 px-2 py-0.5 rounded border border-amber-200">{t.congestion_count}</span>
-                    ) : (
-                      <span className="text-slate-400 font-medium">1</span>
-                    )}
+                  <td className="px-4 py-3 font-mono text-slate-600 font-medium whitespace-nowrap">
+                    {t.remaining_km != null ? `${t.remaining_km.toFixed(1)} km` : "—"}
                   </td>
                 </tr>
               ))

@@ -39,12 +39,17 @@ export function statusLabel(status) {
   }
 }
 
-/** Format a delay_minutes number to "X min late" or "On time". */
+/** Format a delay_minutes number to "Xh Ym late" or "On time". */
 export function formatDelay(delayMin, status) {
   if (!delayMin || delayMin <= 0) {
     return status === "Arrived" ? "Journey Completed" : "On time";
   }
-  return `${delayMin} min late`;
+  const hrs = Math.floor(delayMin / 60);
+  const mins = delayMin % 60;
+  if (hrs > 0) {
+    return `${hrs}h ${mins}m late`;
+  }
+  return `${mins}m late`;
 }
 
 /** Format an ISO timestamp to a short HH:MM string in local time. */

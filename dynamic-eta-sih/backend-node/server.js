@@ -234,6 +234,7 @@ async function pollAndBroadcast() {
         expected_arrival:      eta.expected_arrival       ?? null,
         delay_seconds:         eta.delay_seconds          ?? null,
         status:                eta.status                 ?? "UNKNOWN",
+        remaining_km:          eta.remaining_km           ?? null,
         congestion_count:      eta.congestion_count       ?? null,
         congestion_penalty_min:eta.congestion_penalty_min ?? null,
         anomaly_event:         eta.anomaly_event          ?? null,
