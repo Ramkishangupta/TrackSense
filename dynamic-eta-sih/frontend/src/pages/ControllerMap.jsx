@@ -24,7 +24,7 @@ import { H3HexagonLayer }                         from "@deck.gl/geo-layers";
 import axios                                      from "axios";
 import {
   AlertTriangle, RefreshCw, Layers, X,
-  Wifi, WifiOff, ChevronRight,
+  Wifi, WifiOff, ChevronRight, Loader2,
 } from "lucide-react";
 import { statusLabel, formatDelay, formatTime } from "../utils/statusHelpers";
 
@@ -130,7 +130,7 @@ function hexFill(severity) {
 // SUB-COMPONENTS
 // =============================================================================
 
-function ControlPanel({ trains, connected, lastUpdate, refreshNow, showHex, onToggleHex, corridors }) {
+function ControlPanel({ trains, connected, lastUpdate, refreshNow, resetDemo, resetting, showHex, onToggleHex, corridors }) {
   const onTime  = trains.filter(t => t.status === "ON_TIME").length;
   const delayed = trains.filter(t => t.status !== "ON_TIME" && t.status !== "UNKNOWN").length;
 
@@ -192,9 +192,15 @@ function ControlPanel({ trains, connected, lastUpdate, refreshNow, showHex, onTo
           }`}>
           <Layers size={12} /> Heatmap {showHex ? "ON" : "OFF"}
         </button>
-        <button onClick={refreshNow}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors">
-          <RefreshCw size={12} /> Refresh
+        <button
+          onClick={resetDemo}
+          disabled={resetting}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-wait text-white transition-colors"
+        >
+          {resetting
+            ? <><Loader2 size={12} className="animate-spin" /> Resetting…</>
+            : <><RefreshCw size={12} /> Reset Demo</>
+          }
         </button>
       </div>
 
@@ -300,6 +306,7 @@ export default function ControllerMap({ trains, connected, lastUpdate, refreshNo
   const [showHex,    setShowHex]    = useState(true);
   const [corridors,  setCorridors]  = useState([]);
   const [stationPts, setStationPts] = useState([]);
+  const [resetting,  setResetting]  = useState(false);
 
   // ── MapLibre boot ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -569,6 +576,18 @@ export default function ControllerMap({ trains, connected, lastUpdate, refreshNo
           connected={connected}
           lastUpdate={lastUpdate}
           refreshNow={refreshNow}
+          resetDemo={async () => {
+            setResetting(true);
+            try {
+              await axios.post(`${NODE_URL}/api/reset-demo`);
+              refreshNow();  // also trigger a socket refresh
+            } catch (err) {
+              console.error("[Reset] Failed:", err.message);
+            } finally {
+              setResetting(false);
+            }
+          }}
+          resetting={resetting}
           showHex={showHex}
           onToggleHex={() => setShowHex(v => !v)}
           corridors={corridors}

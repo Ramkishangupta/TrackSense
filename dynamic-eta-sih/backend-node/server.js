@@ -449,12 +449,80 @@ app.get("/api/routes/corridors", async (req, res) => {
   }
 });
 
+
+// =============================================================================
+// DEMO RESET ENDPOINT
+// Truncates live_telemetry + events_log and re-seeds starting positions.
+// Called by the frontend "Refresh" / "Reset Demo" button.
+// =============================================================================
+
+app.post("/api/reset-demo", async (req, res) => {
+  console.log("[Reset] Demo reset requested — re-seeding telemetry…");
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    // Clear live data
+    await client.query("TRUNCATE TABLE events_log RESTART IDENTITY CASCADE");
+    await client.query("TRUNCATE TABLE live_telemetry RESTART IDENTITY CASCADE");
+
+    // Re-insert seed positions (matches seed_telemetry.sql exactly)
+    const seeds = [
+      // Route 1: North Corridor (original)
+      [1,  28.6550, 77.3270, 130.00,  0, '873da1ab2ffffff'],
+      [2,  27.9800, 78.0520,  95.00, 18, '873dae123ffffff'],
+      [3,  27.5400, 78.1730,  45.00, 42, '873dae443ffffff'],
+      [4,  26.6850, 80.0420, 110.00, 10, '873d8c101ffffff'],
+      // Route 2: South-West Corridor (original)
+      [5,  25.5120, 78.6250, 120.00,  0, '873d8382affffff'],
+      [6,  25.4830, 79.6200, 100.00, 15, '873d8ece3ffffff'],
+      [7,  26.3200, 80.1850,  80.00, 28, '873d8c44dffffff'],
+      [8,  26.4000, 80.2800,  60.00,  0, '873d8c72effffff'],
+      // Route 3: East Corridor (original)
+      [9,  25.4900, 81.7850, 110.00,  0, '873d8b888ffffff'],
+      [10, 25.7200, 81.1200,  95.00, 12, '873d88730ffffff'],
+      [11, 26.5500, 80.6500,  70.00, 35, '873d8c21affffff'],
+      [12, 26.5100, 80.4800,  50.00, 55, '873d8c39effffff'],
+      // Expansion trains (13-20)
+      [13, 28.6600, 77.4000, 120.00,  0, '873da1ac4ffffff'],
+      [14, 27.2100, 78.2500, 115.00, 22, '873dae562ffffff'],
+      [15, 25.9800, 79.4500, 100.00,  0, '873d8ec95ffffff'],
+      [16, 25.7200, 79.8900,  95.00, 20, '873d8ec11ffffff'],
+      [17, 25.1500, 82.5700, 115.00,  0, '873d89b82ffffff'],
+      [18, 25.5400, 81.7000, 115.00,  8, '873d8b886ffffff'],
+      [19, 26.7800, 79.0300,  95.00, 30, '873d8c685ffffff'],
+      [20, 27.8500, 78.1000,  90.00, 15, '873dae125ffffff'],
+    ];
+
+    for (const [tid, lat, lng, spd, dly, h3] of seeds) {
+      await client.query(
+        `INSERT INTO live_telemetry
+           (train_id, current_lat, current_lng, current_speed, delay_minutes, h3_index, recorded_at)
+         VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+        [tid, lat, lng, spd, dly, h3]
+      );
+    }
+
+    await client.query("COMMIT");
+    console.log("[Reset] Telemetry re-seeded. Broadcasting fresh state…");
+
+    // Trigger an immediate broadcast so all clients see the reset
+    await pollAndBroadcast();
+
+    res.json({ success: true, message: "Demo reset complete. Trains repositioned." });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("[Reset] Error:", err.message);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
 // 404 fallback for unmatched routes
 app.use((req, res) => {
   res.status(404).json({ error: `No route found for ${req.method} ${req.path}` });
 });
-
-
 
 // =============================================================================
 // SERVER STARTUP

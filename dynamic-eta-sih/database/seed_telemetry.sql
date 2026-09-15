@@ -60,6 +60,40 @@ INSERT INTO live_telemetry (train_id, current_lat, current_lng, current_speed, d
 INSERT INTO live_telemetry (train_id, current_lat, current_lng, current_speed, delay_minutes, h3_index, recorded_at) VALUES
     (12, 26.5100, 80.4800, 50.00,  55, '873d8c39effffff', NOW());
 
+-- ── EXPANSION TRAINS (ids 13-20) ───────────────────────────────────────────
+
+-- Train 13: 12034 Kanpur Shatabdi — Near GZB, full speed, ON-TIME
+INSERT INTO live_telemetry (train_id, current_lat, current_lng, current_speed, delay_minutes, h3_index, recorded_at) VALUES
+    (13, 28.6600, 77.4000, 120.00, 0,  '873da1ac4ffffff', NOW());
+
+-- Train 14: 12802 Purushottam SF — Near Tundla, MINOR DELAY (22 min)
+INSERT INTO live_telemetry (train_id, current_lat, current_lng, current_speed, delay_minutes, h3_index, recorded_at) VALUES
+    (14, 27.2100, 78.2500, 115.00, 22, '873dae562ffffff', NOW());
+
+-- Train 15: 12137 Punjab Mail — Near Orai, ON-TIME
+INSERT INTO live_telemetry (train_id, current_lat, current_lng, current_speed, delay_minutes, h3_index, recorded_at) VALUES
+    (15, 25.9800, 79.4500, 100.00, 0,  '873d8ec95ffffff', NOW());
+
+-- Train 16: 12139 Sewagram Express — Between ORAI and BAND, MINOR DELAY (20 min)
+INSERT INTO live_telemetry (train_id, current_lat, current_lng, current_speed, delay_minutes, h3_index, recorded_at) VALUES
+    (16, 25.7200, 79.8900, 95.00,  20, '873d8ec11ffffff', NOW());
+
+-- Train 17: 12381 Poorva Express — Near Mirzapur, ON-TIME
+INSERT INTO live_telemetry (train_id, current_lat, current_lng, current_speed, delay_minutes, h3_index, recorded_at) VALUES
+    (17, 25.1500, 82.5700, 115.00, 0,  '873d89b82ffffff', NOW());
+
+-- Train 18: 12307 Jodhpur SF — Between MZP and FTP, MINOR DELAY (8 min)
+INSERT INTO live_telemetry (train_id, current_lat, current_lng, current_speed, delay_minutes, h3_index, recorded_at) VALUES
+    (18, 25.5400, 81.7000, 115.00, 8,  '873d8b886ffffff', NOW());
+
+-- Train 19: 12556 Gorakhdham Exp — Near Etawah, MODERATE DELAY (30 min)
+INSERT INTO live_telemetry (train_id, current_lat, current_lng, current_speed, delay_minutes, h3_index, recorded_at) VALUES
+    (19, 26.7800, 79.0300, 95.00,  30, '873d8c685ffffff', NOW());
+
+-- Train 20: 14216 Ganga Gomti Exp — Near ALJN, MINOR DELAY (15 min)
+INSERT INTO live_telemetry (train_id, current_lat, current_lng, current_speed, delay_minutes, h3_index, recorded_at) VALUES
+    (20, 27.8500, 78.1000, 90.00,  15, '873dae125ffffff', NOW());
+
 -- Verify
 SELECT
     t.train_no, t.name, t.train_type,

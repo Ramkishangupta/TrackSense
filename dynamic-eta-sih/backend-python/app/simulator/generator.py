@@ -76,6 +76,10 @@ ANOMALY_HALT_PROB: float = 0.03   # 3% → unscheduled_halt
 ANOMALY_SIGNAL_PROB: float = 0.02 # 2% → signal_halt
 ANOMALY_RESOLVE_PROB: float = 0.12 # 12% → resolve old event after 60s
 
+# Smart Dwell: ticks a train stays parked at the terminus before looping.
+# 30 ticks × 10s = 5 real minutes of congestion pile-up at CNB.
+DWELL_TICKS: int = 30
+
 # FORCED DEMO EVENTS on Tick 1:
 # These guarantee the scenario described in phases.md is visible immediately.
 #   - 2 trains get weather_fog
@@ -393,7 +397,8 @@ def query_h3_congestion(session) -> list:
 # CORE SIMULATION TICK
 # =============================================================================
 
-def run_tick(session, trains: list, routes_map: dict, tick: int) -> tuple[list, list]:
+def run_tick(session, trains: list, routes_map: dict, tick: int,
+             dwell_counters: dict) -> tuple[list, list]:
     """
     Single simulation tick: advance every train, inject anomalies, upsert telemetry.
 
@@ -464,6 +469,49 @@ def run_tick(session, trains: list, routes_map: dict, tick: int) -> tuple[list, 
         new_lat, new_lng = advance_position(
             cur_lat, cur_lng, route, eff_speed, TICK_INTERVAL
         )
+
+        # ── SMART DWELL: Park at terminus, then loop after DWELL_TICKS ──
+        # Instead of resetting immediately, trains "park" at the terminus
+        # for DWELL_TICKS so they pile up at CNB → triggers H3 congestion.
+        terminus = route[-1]
+        dist_to_terminus = geodesic(
+            (new_lat, new_lng),
+            (float(terminus.lat), float(terminus.lng))
+        ).km
+
+        if dist_to_terminus < 0.5:
+            if tid not in dwell_counters:
+                # First tick at terminus — start the dwell countdown
+                dwell_counters[tid] = 0
+                event_logs.append(
+                    f"🅿️  ARRIVED (DWELL)   → Train {train_no} "
+                    f"at {terminus.station_code} — parking for {DWELL_TICKS} ticks"
+                )
+
+            dwell_counters[tid] += 1
+
+            if dwell_counters[tid] >= DWELL_TICKS:
+                # Dwell time expired — reset to origin
+                origin = route[0]
+                new_lat = float(origin.lat)
+                new_lng = float(origin.lng)
+                new_delay = 0
+                eff_speed = base_speed
+                session.execute(text("""
+                    UPDATE events_log SET is_active = FALSE
+                    WHERE train_id = :tid AND is_active = TRUE
+                """), {"tid": tid})
+                event_type = "normal"
+                del dwell_counters[tid]
+                event_logs.append(
+                    f"🔄  LOOP RESET       → Train {train_no} "
+                    f"(departing {origin.station_code} after dwell)"
+                )
+            else:
+                # Still dwelling — park with speed=0
+                new_lat = float(terminus.lat)
+                new_lng = float(terminus.lng)
+                eff_speed = 0.0
 
         # ── H3 INDEXING (Python h3 v4 API) ────────────────────────────
         new_h3 = h3.latlng_to_cell(new_lat, new_lng, H3_RESOLUTION)
@@ -591,13 +639,15 @@ def main() -> None:
     print("  Starting simulation loop. Press Ctrl+C to stop.\n")
 
     tick = 0
+    dwell_counters: dict[int, int] = {}  # {train_id: ticks_spent_at_terminus}
     while True:
         tick += 1
         tick_start = time.monotonic()
 
         try:
             with SessionLocal() as session:
-                updates, event_logs = run_tick(session, trains, routes_map, tick)
+                updates, event_logs = run_tick(session, trains, routes_map, tick,
+                                               dwell_counters)
                 congestion = query_h3_congestion(session)
 
             print_tick_summary(tick, updates, event_logs, congestion)
