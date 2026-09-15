@@ -11,6 +11,7 @@ import {
 import ControllerMap  from "./pages/ControllerMap";
 import StationView    from "./pages/StationView";
 import PassengerApp   from "./pages/PassengerApp";
+import AICopilot      from "./components/AICopilot";
 import useTrainSocket from "./hooks/useTrainSocket";
 
 // ── Nav items ────────────────────────────────────────────────────────────────
@@ -121,6 +122,9 @@ function Shell() {
           <Route path="/passenger" element={<PassengerApp   {...socket} />} />
         </Routes>
       </main>
+
+      {/* Phase 6: Floating AI Copilot — available on every dashboard */}
+      <AICopilot />
     </div>
   );
 }
