@@ -409,16 +409,18 @@ app.get("/api/routes/corridors", async (req, res) => {
         CAST(s.lng AS FLOAT) AS lng
       FROM routes r
       JOIN stations s ON s.id = r.station_id
-      WHERE r.train_id IN (1, 5, 9)
+      WHERE r.train_id IN (1, 6, 11, 16, 21)
       ORDER BY r.train_id, r.station_sequence
     `;
     const { rows } = await pool.query(sql);
 
     // corridor metadata (colour is consumed by the frontend)
     const meta = {
-      1: { name: "North Corridor (NDLS → CNB)", color: [30, 64, 175, 220]  },
-      5: { name: "SW Corridor (CSTM → CNB)",   color: [126, 34, 206, 200] },
-      9: { name: "East Corridor (HWH → CNB)",  color: [5, 150, 105, 200]  },
+      1:  { name: "North Corridor (NDLS → CNB)",   color: [30,  64, 175, 220] },
+      6:  { name: "West Corridor (CSTM → JHS)",    color: [126, 34, 206, 220] },
+      11: { name: "East Corridor (HWH → PRYJ)",    color: [5,  150, 105, 220] },
+      16: { name: "South Corridor (NGP → CNB)",    color: [220, 38,  38, 220] },
+      21: { name: "Central Corridor (LKO → PRYJ)", color: [217, 119,  6, 220] },
     };
 
     // Group rows by train_id (= one corridor per train_id)
@@ -468,30 +470,40 @@ app.post("/api/reset-demo", async (req, res) => {
 
     // Re-insert seed positions (matches seed_telemetry.sql exactly)
     const seeds = [
-      // Route 1: North Corridor (original)
-      [1,  28.6550, 77.3270, 130.00,  0, '873da1ab2ffffff'],
-      [2,  27.9800, 78.0520,  95.00, 18, '873dae123ffffff'],
-      [3,  27.5400, 78.1730,  45.00, 42, '873dae443ffffff'],
-      [4,  26.6850, 80.0420, 110.00, 10, '873d8c101ffffff'],
-      // Route 2: South-West Corridor (original)
-      [5,  25.5120, 78.6250, 120.00,  0, '873d8382affffff'],
-      [6,  25.4830, 79.6200, 100.00, 15, '873d8ece3ffffff'],
-      [7,  26.3200, 80.1850,  80.00, 28, '873d8c44dffffff'],
-      [8,  26.4000, 80.2800,  60.00,  0, '873d8c72effffff'],
-      // Route 3: East Corridor (original)
-      [9,  25.4900, 81.7850, 110.00,  0, '873d8b888ffffff'],
-      [10, 25.7200, 81.1200,  95.00, 12, '873d88730ffffff'],
-      [11, 26.5500, 80.6500,  70.00, 35, '873d8c21affffff'],
-      [12, 26.5100, 80.4800,  50.00, 55, '873d8c39effffff'],
-      // Expansion trains (13-20)
-      [13, 28.6600, 77.4000, 120.00,  0, '873da1ac4ffffff'],
-      [14, 27.2100, 78.2500, 115.00, 22, '873dae562ffffff'],
-      [15, 25.9800, 79.4500, 100.00,  0, '873d8ec95ffffff'],
-      [16, 25.7200, 79.8900,  95.00, 20, '873d8ec11ffffff'],
-      [17, 25.1500, 82.5700, 115.00,  0, '873d89b82ffffff'],
-      [18, 25.5400, 81.7000, 115.00,  8, '873d8b886ffffff'],
-      [19, 26.7800, 79.0300,  95.00, 30, '873d8c685ffffff'],
-      [20, 27.8500, 78.1000,  90.00, 15, '873dae125ffffff'],
+      // Route 1 (NDLS -> CNB)
+      [1, 28.6418, 77.2171, 130.00,  0, '873da1ab2ffffff'],
+      [2, 28.6685, 77.4372,  95.00, 18, '873dae123ffffff'],
+      [3, 27.8805, 78.0799,  90.00, 42, '873db87c5ffffff'],
+      [4, 27.2091, 78.2567, 115.00, 10, '873db9ac1ffffff'],
+      [5, 26.5000, 80.3000, 130.00,  0, '873d8c39effffff'],
+
+      // Route 2 (CSTM -> JHS)
+      [6, 18.9403, 72.8355, 110.00, 15, '873da1ab2ffffff'],
+      [7, 21.0455, 75.8011, 105.00, 10, '873dae123ffffff'],
+      [8, 22.6184, 77.7712,  95.00,  0, '873db87c5ffffff'],
+      [9, 23.2599, 77.4126,  90.00, 20, '873db9ac1ffffff'],
+      [10, 24.1683, 78.1884, 110.00,  5, '873d8c39effffff'],
+
+      // Route 3 (HWH -> PRYJ)
+      [11, 22.5832, 88.3427, 100.00,  0, '873da1ab2ffffff'],
+      [12, 23.7925, 86.4320,  95.00, 15, '873dae123ffffff'],
+      [13, 24.7955, 85.0000,  90.00, 30, '873db87c5ffffff'],
+      [14, 25.2818, 83.1189,  80.00, 55, '873db9ac1ffffff'],
+      [15, 25.4000, 82.0000, 120.00,  5, '873d8c39effffff'],
+
+      // Route 4 (NGP -> CNB)
+      [16, 21.1500, 79.0833, 115.00,  0, '873da1ab2ffffff'],
+      [17, 22.6184, 77.7712, 100.00, 20, '873dae123ffffff'],
+      [18, 25.4489, 78.5690, 110.00,  0, '873db87c5ffffff'],
+      [19, 25.9928, 79.4674, 115.00, 12, '873db9ac1ffffff'],
+      [20, 26.4000, 80.2000,  90.00, 35, '873d8c39effffff'],
+
+      // Route 5 (LKO -> PRYJ)
+      [21, 26.8306, 80.9238,  95.00,  0, '873da1ab2ffffff'],
+      [22, 26.2307, 81.2407,  90.00, 10, '873dae123ffffff'],
+      [23, 25.9189, 81.9839,  85.00, 25, '873db87c5ffffff'],
+      [24, 25.5000, 81.8500, 110.00,  5, '873db9ac1ffffff'],
+      [25, 25.4467, 81.8407,  90.00,  0, '873d8c39effffff'],
     ];
 
     for (const [tid, lat, lng, spd, dly, h3] of seeds) {

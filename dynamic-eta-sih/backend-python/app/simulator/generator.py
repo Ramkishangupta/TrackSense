@@ -88,8 +88,8 @@ DWELL_TICKS: int = 30
 #   id=3  → 14854 Marudhar Express (North corridor, already delayed)
 #   id=11 → 13133 Seelampur Express (East corridor, approaching CNB)
 #   id=12 → 15707 Katihar Express   (East corridor, near CNB)
-FORCED_FOG_TRAIN_IDS: list[int] = [3, 11]
-FORCED_HALT_TRAIN_ID: int = 12
+FORCED_FOG_TRAIN_IDS: list[int] = [5, 15]
+FORCED_HALT_TRAIN_ID: int = 25
 
 # Base speed (km/h) by train category
 BASE_SPEED_BY_TYPE: dict[str, float] = {

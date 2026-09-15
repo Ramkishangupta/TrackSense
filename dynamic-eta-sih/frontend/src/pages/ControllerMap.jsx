@@ -50,9 +50,11 @@ const INIT_VIEW = {
  *   train_id  9-12 → East   (corridor_id = 9, representative = train 9)
  */
 function getCorridorId(trainId) {
-  if (trainId <= 4)  return 1;
-  if (trainId <= 8)  return 5;
-  return 9;
+  if (trainId <= 5)  return 1;
+  if (trainId <= 10) return 6;
+  if (trainId <= 15) return 11;
+  if (trainId <= 20) return 16;
+  return 21;
 }
 
 /**
