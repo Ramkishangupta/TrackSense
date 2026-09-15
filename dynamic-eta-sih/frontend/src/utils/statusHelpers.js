@@ -41,8 +41,9 @@ export function statusLabel(status) {
 
 /** Format a delay_minutes number to "X min late" or "On time". */
 export function formatDelay(delayMin, status) {
-  if (status === "Arrived") return "Arrived ✓";
-  if (!delayMin || delayMin <= 0) return "On time";
+  if (!delayMin || delayMin <= 0) {
+    return status === "Arrived" ? "Journey Completed" : "On time";
+  }
   return `${delayMin} min late`;
 }
 

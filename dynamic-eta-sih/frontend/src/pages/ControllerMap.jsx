@@ -136,14 +136,14 @@ function ControlPanel({ trains, connected, lastUpdate, refreshNow, resetDemo, re
 
   return (
     <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden w-[260px]">
-      <div className="bg-blue-700 px-4 py-3 flex items-center justify-between">
+      <div className="bg-slate-50 px-4 py-3 flex items-center justify-between border-b border-slate-200">
         <div>
-          <p className="text-white font-bold text-sm tracking-wide">TrackSense Live</p>
-          <p className="text-blue-200 text-[10px] mt-0.5">Network Operations Centre</p>
+          <p className="text-slate-800 font-black text-sm tracking-wide">TrackSense Live</p>
+          <p className="text-slate-500 font-bold text-[10px] mt-0.5 uppercase tracking-wider">Network Operations Centre</p>
         </div>
         <div className="flex items-center gap-1.5">
-          {connected ? <Wifi size={13} className="text-emerald-300" /> : <WifiOff size={13} className="text-rose-300" />}
-          <span className={`text-[10px] font-semibold ${connected ? "text-emerald-300" : "text-rose-300"}`}>
+          {connected ? <Wifi size={13} className="text-emerald-500" /> : <WifiOff size={13} className="text-rose-500" />}
+          <span className={`text-[10px] font-bold tracking-wider ${connected ? "text-emerald-600" : "text-rose-600"}`}>
             {connected ? "LIVE" : "OFFLINE"}
           </span>
         </div>
@@ -600,8 +600,8 @@ export default function ControllerMap({ trains, connected, lastUpdate, refreshNo
       </div>
 
       {!connected && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-rose-600 text-white px-5 py-2 rounded-full text-xs font-semibold shadow-lg pointer-events-none">
-          <AlertTriangle size={13} />
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-rose-50 border border-rose-200 text-rose-700 px-5 py-2.5 rounded-full text-xs font-bold shadow-lg pointer-events-none">
+          <AlertTriangle size={14} />
           WebSocket disconnected — showing last known data
         </div>
       )}
