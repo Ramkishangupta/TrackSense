@@ -60,6 +60,12 @@ MAX_CONGESTION_PENALTY_MIN: int = 45  # Cap so ETA doesn't spiral unrealisticall
 FOG_PENALTY_MIN: int = 20
 HALT_PENALTY_MIN: int = 10  # Covers signal_halt, unscheduled_halt, chain_pulling
 
+# Arrival threshold — if remaining_km is below this value, the train is
+# considered to have arrived at its terminus.  All penalty/ETA logic is
+# bypassed and status is forced to "Arrived" so the dashboard shows
+# a clean terminal state instead of a runaway congestion-penalty loop.
+ARRIVAL_THRESHOLD_KM: float = 0.05
+
 
 # ---------------------------------------------------------------------------
 # DATA FETCH HELPERS (internal to this module)
@@ -123,19 +129,29 @@ def _fetch_remaining_distance(session: Session, train_id: int,
 
     # Find the nearest stop to the current position (Euclidean on lat/lng —
     # fine for distances < 300 km at Indian Railway latitudes).
-    best_dist_km = 0.0
+    nearest_idx = 0
     min_euclidean = math.inf
-    for stop in stops:
+    for i, stop in enumerate(stops):
         euclidean = math.sqrt(
             (float(stop.lat) - current_lat) ** 2 +
             (float(stop.lng) - current_lng) ** 2
         )
         if euclidean < min_euclidean:
             min_euclidean = euclidean
-            best_dist_km = float(stop.distance_from_start)
+            nearest_idx = i
 
-    remaining = total_km - best_dist_km
-    return max(remaining, 0.0)
+    # Convert degrees to approx km (1 deg ~ 111 km)
+    offset_km = min_euclidean * 111.0
+
+    if nearest_idx == len(stops) - 1:
+        # If the closest station is the terminus, the remaining distance
+        # is just the straight-line distance to it. This prevents the ETA
+        # from dropping to zero halfway through the final segment.
+        return offset_km
+    else:
+        # Otherwise, use the nearest station's track distance as a proxy.
+        base_remaining = total_km - float(stops[nearest_idx].distance_from_start)
+        return max(base_remaining, 0.0)
 
 
 def _fetch_congestion_count(session: Session, h3_index: str) -> int:
@@ -196,10 +212,39 @@ def compute_baseline_eta(session: Session, train_id: int) -> dict:
     if train is None:
         return {"error": f"Train with id={train_id} not found."}
 
-    avg_speed = BASE_SPEED_BY_TYPE.get(train.train_type, DEFAULT_SPEED)
+    avg_speed    = BASE_SPEED_BY_TYPE.get(train.train_type, DEFAULT_SPEED)
     remaining_km = _fetch_remaining_distance(
         session, train_id, float(train.current_lat), float(train.current_lng)
     )
+
+    # ------------------------------------------------------------------ #
+    # ARRIVAL GUARD — bypass ALL ETA/penalty logic when the train is      #
+    # within ARRIVAL_THRESHOLD_KM of its terminus.                        #
+    # Without this, all 12 trains parked at CNB share the same H3 cell   #
+    # and receive the full 45-min congestion penalty every 5 seconds,     #
+    # producing absurd "Major Delay" readings on an already-arrived train.#
+    # ------------------------------------------------------------------ #
+    if remaining_km < ARRIVAL_THRESHOLD_KM:
+        now_utc = datetime.now(timezone.utc)
+        return {
+            "trip_id":            f"TRAIN-{train.train_no}",
+            "train_no":           train.train_no,
+            "train_name":         train.train_name,
+            "train_type":         train.train_type,
+            "current_lat":        float(train.current_lat),
+            "current_lng":        float(train.current_lng),
+            "h3_index":           train.h3_index,
+            "remaining_km":       round(remaining_km, 2),
+            "avg_speed_kmh":      avg_speed,
+            "existing_delay_min": int(train.delay_minutes or 0),
+            "travel_time_min":    0.0,
+            "total_eta_min":      0.0,
+            "expected_arrival":   now_utc.isoformat(),
+            "delay_seconds":      0,
+            "status":             "Arrived",
+            "model_used":         "arrival_guard",
+            "telemetry_age_s":    _telemetry_age_seconds(train.recorded_at),
+        }
 
     # Core physics formula
     if avg_speed > 0 and remaining_km > 0:
@@ -259,7 +304,49 @@ def compute_dynamic_eta(session: Session, train_id: int) -> dict:
         anomaly_event, anomaly_penalty_min,
         total_dynamic_penalty_min, model_used = "dynamic_stgnn_mock"
     """
-    # Start from the baseline
+    # ------------------------------------------------------------------ #
+    # ARRIVAL GUARD — must run BEFORE compute_baseline_eta so we never   #
+    # even query congestion counts for a train that has already arrived. #
+    # ------------------------------------------------------------------ #
+    train = _fetch_train_details(session, train_id)
+    if train is None:
+        return {"error": f"Train with id={train_id} not found."}
+
+    remaining_km = _fetch_remaining_distance(
+        session, train_id,
+        float(train.current_lat), float(train.current_lng)
+    )
+    if remaining_km < ARRIVAL_THRESHOLD_KM:
+        now_utc = datetime.now(timezone.utc)
+        avg_speed = BASE_SPEED_BY_TYPE.get(train.train_type, DEFAULT_SPEED)
+        return {
+            "trip_id":                  f"TRAIN-{train.train_no}",
+            "train_no":                 train.train_no,
+            "train_name":               train.train_name,
+            "train_type":               train.train_type,
+            "current_lat":              float(train.current_lat),
+            "current_lng":              float(train.current_lng),
+            "h3_index":                 train.h3_index,
+            "remaining_km":             round(remaining_km, 2),
+            "avg_speed_kmh":            avg_speed,
+            "existing_delay_min":       int(train.delay_minutes or 0),
+            "travel_time_min":          0.0,
+            "total_eta_min":            0.0,
+            "expected_arrival":         now_utc.isoformat(),
+            "delay_seconds":            0,
+            "status":                   "Arrived",
+            "model_used":               "arrival_guard",
+            "telemetry_age_s":          _telemetry_age_seconds(train.recorded_at),
+            # Dynamic-specific fields zeroed out
+            "congestion_count":         1,
+            "congestion_penalty_min":   0,
+            "anomaly_event":            "none",
+            "anomaly_penalty_min":      0,
+            "total_dynamic_penalty_min": 0,
+            "baseline_eta_min":         0.0,
+        }
+
+    # Start from the baseline (arrival guard already passed above)
     baseline = compute_baseline_eta(session, train_id)
     if "error" in baseline:
         return baseline

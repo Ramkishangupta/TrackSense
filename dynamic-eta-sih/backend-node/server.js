@@ -382,10 +382,79 @@ app.get("/api/congestion", async (req, res) => {
   }
 });
 
+/**
+ * GET /api/routes/corridors
+ * Returns the ordered station waypoints for each of the 3 rail corridors,
+ * read directly from the routes + stations tables.
+ *
+ * This is the ground-truth geometry the Python simulator uses to move trains.
+ * The frontend PathLayer consumes this so tracks are ALWAYS perfectly aligned
+ * with train positions — no hardcoded coordinates that can drift.
+ *
+ * One representative train per corridor is used (all trains on the same
+ * corridor share identical station sequences):
+ *   train_id = 1  →  North Corridor  (NDLS → GZB → ALJN → TDL → CNB)
+ *   train_id = 5  →  SW Corridor     (CSTM → JHS → BAND → CNB)
+ *   train_id = 9  →  East Corridor   (HWH  → PRYJ → FTP → CNB)
+ */
+app.get("/api/routes/corridors", async (req, res) => {
+  try {
+    const sql = `
+      SELECT
+        r.train_id,
+        r.station_sequence,
+        s.code,
+        s.name,
+        CAST(s.lat AS FLOAT) AS lat,
+        CAST(s.lng AS FLOAT) AS lng
+      FROM routes r
+      JOIN stations s ON s.id = r.station_id
+      WHERE r.train_id IN (1, 5, 9)
+      ORDER BY r.train_id, r.station_sequence
+    `;
+    const { rows } = await pool.query(sql);
+
+    // corridor metadata (colour is consumed by the frontend)
+    const meta = {
+      1: { name: "North Corridor (NDLS → CNB)", color: [30, 64, 175, 220]  },
+      5: { name: "SW Corridor (CSTM → CNB)",   color: [126, 34, 206, 200] },
+      9: { name: "East Corridor (HWH → CNB)",  color: [5, 150, 105, 200]  },
+    };
+
+    // Group rows by train_id (= one corridor per train_id)
+    const grouped = {};
+    rows.forEach(row => {
+      if (!grouped[row.train_id]) {
+        grouped[row.train_id] = {
+          ...meta[row.train_id],
+          corridor_id: Number(row.train_id),
+          stations: [],
+        };
+      }
+      grouped[row.train_id].stations.push({
+        code:     row.code,
+        name:     row.name,
+        lat:      row.lat,
+        lng:      row.lng,
+        sequence: row.station_sequence,
+      });
+    });
+
+    const corridors = Object.values(grouped).sort((a, b) => a.corridor_id - b.corridor_id);
+    res.json({ count: corridors.length, corridors });
+
+  } catch (err) {
+    console.error("[REST] GET /api/routes/corridors failed:", err.message);
+    res.status(500).json({ error: "Failed to fetch route corridor data." });
+  }
+});
+
 // 404 fallback for unmatched routes
 app.use((req, res) => {
   res.status(404).json({ error: `No route found for ${req.method} ${req.path}` });
 });
+
+
 
 // =============================================================================
 // SERVER STARTUP

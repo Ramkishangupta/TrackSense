@@ -138,7 +138,7 @@ function SuggestionPill({ train, onClick }) {
         <span className="text-xs font-normal opacity-70">{train.train_name}</span>
       </span>
       <span className="flex items-center gap-1 text-xs opacity-80">
-        {formatDelay(train.delay_minutes)}
+        {formatDelay(train.delay_minutes, train.status)}
         <ChevronRight size={12} />
       </span>
     </button>

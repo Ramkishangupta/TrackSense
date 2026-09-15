@@ -32,6 +32,7 @@ function StatusBadge({ status }) {
     MINOR_DELAY:    "bg-amber-500/15   text-amber-400   border-amber-500/30",
     MODERATE_DELAY: "bg-orange-500/15  text-orange-400  border-orange-500/30",
     MAJOR_DELAY:    "bg-rose-500/15    text-rose-400    border-rose-500/30",
+    Arrived:        "bg-blue-500/15    text-blue-400    border-blue-500/30",
   };
   return (
     <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${map[status] ?? "bg-slate-700 text-slate-400 border-slate-600"}`}>
@@ -176,7 +177,7 @@ export default function StationView({ trains, connected, lastUpdate, refreshNow 
                     {(t.current_speed ?? 0).toFixed(0)} km/h
                   </td>
                   <td className={`px-4 py-3 font-mono font-semibold whitespace-nowrap ${statusColorClass(t.status)}`}>
-                    {formatDelay(t.delay_minutes)}
+                    {formatDelay(t.delay_minutes, t.status)}
                   </td>
                   <td className="px-4 py-3 font-mono text-slate-200 whitespace-nowrap">
                     {t.total_eta_min != null ? `${Math.round(t.total_eta_min)} min` : "—"}
