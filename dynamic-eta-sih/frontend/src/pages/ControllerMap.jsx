@@ -569,6 +569,9 @@ export default function ControllerMap({ trains, connected, lastUpdate, refreshNo
           isDragging ? "grabbing" : isHovering ? "pointer" : "grab"
         }
         style={{ position: "absolute", inset: 0 }}
+        glOptions={{ alpha: true }}
+        parameters={{ blend: true }}
+        useDevicePixels={true}
       />
 
       <div className="absolute top-4 left-4 z-10 flex flex-col gap-3">
