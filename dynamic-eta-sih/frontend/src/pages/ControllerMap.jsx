@@ -18,7 +18,7 @@
 import { useEffect, useRef, useState, useMemo } from "react";
 import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { DeckGL }                                from "@deck.gl/react";
+import { MapboxOverlay }                          from "@deck.gl/mapbox";
 import { ScatterplotLayer, TextLayer, PathLayer } from "@deck.gl/layers";
 import { H3HexagonLayer }                         from "@deck.gl/geo-layers";
 import axios                                      from "axios";
@@ -301,6 +301,7 @@ export default function ControllerMap({ trains, connected, lastUpdate, refreshNo
   const wrapRef    = useRef(null);
   const mapContRef = useRef(null);
   const mapRef     = useRef(null);
+  const overlayRef = useRef(null);
 
   const [viewState,  setViewState]  = useState(INIT_VIEW);
   const [congestion, setCongestion] = useState([]);
@@ -310,7 +311,7 @@ export default function ControllerMap({ trains, connected, lastUpdate, refreshNo
   const [stationPts, setStationPts] = useState([]);
   const [resetting,  setResetting]  = useState(false);
 
-  // ── MapLibre boot ──────────────────────────────────────────────────────────
+  // ── MapLibre boot + DeckGL overlay (renders into the SAME canvas) ─────────
   useEffect(() => {
     if (mapRef.current || !mapContRef.current) return;
     const map = new maplibregl.Map({
@@ -320,15 +321,40 @@ export default function ControllerMap({ trains, connected, lastUpdate, refreshNo
       zoom:        INIT_VIEW.zoom,
       pitch:       INIT_VIEW.pitch,
       bearing:     INIT_VIEW.bearing,
-      interactive: false,
+      interactive: true,
       antialias:   true,
     });
-    // Controls removed as per user request
-    map.on("style.load", () => map.resize());
-    mapRef.current = map;
+
+    // Create deck.gl overlay that renders INTO the MapLibre canvas
+    const overlay = new MapboxOverlay({ interleaved: false });
+
+    map.on("style.load", () => {
+      map.resize();
+      map.addControl(overlay);
+    });
+
+    // Sync viewState from MapLibre → React (for zoom-based layer visibility)
+    map.on("move", () => {
+      setViewState({
+        longitude: map.getCenter().lng,
+        latitude:  map.getCenter().lat,
+        zoom:      map.getZoom(),
+        pitch:     map.getPitch(),
+        bearing:   map.getBearing(),
+      });
+    });
+
+    mapRef.current   = map;
+    overlayRef.current = overlay;
+
     const ro = new ResizeObserver(() => map.resize());
     if (wrapRef.current) ro.observe(wrapRef.current);
-    return () => { ro.disconnect(); map.remove(); mapRef.current = null; };
+    return () => {
+      ro.disconnect();
+      map.remove();
+      mapRef.current   = null;
+      overlayRef.current = null;
+    };
   }, []);
 
   // ── Fetch DB-sourced route geometry ───────────────────────────────────────
@@ -358,16 +384,13 @@ export default function ControllerMap({ trains, connected, lastUpdate, refreshNo
       .catch(err => console.warn("[Routes] Fetch failed:", err.message));
   }, []);
 
-  // ── Camera sync: DeckGL → MapLibre ────────────────────────────────────────
-  function onViewStateChange({ viewState: vs }) {
-    setViewState(vs);
-    mapRef.current?.jumpTo({
-      center:  [vs.longitude, vs.latitude],
-      zoom:    vs.zoom,
-      bearing: vs.bearing,
-      pitch:   vs.pitch,
+  // ── Push layers + click handler into the MapboxOverlay each render ────────
+  useEffect(() => {
+    overlayRef.current?.setProps({
+      layers,
+      onClick: handleClick,
     });
-  }
+  });
 
   // ── Keep popup in sync with live socket data ───────────────────────────────
   useEffect(() => {
@@ -558,21 +581,6 @@ export default function ControllerMap({ trains, connected, lastUpdate, refreshNo
       style={{ position: "relative", width: "100%", height: "100vh", overflow: "hidden" }}
     >
       <div ref={mapContRef} style={{ position: "absolute", inset: 0 }} />
-
-      <DeckGL
-        viewState={viewState}
-        controller={true}
-        onViewStateChange={onViewStateChange}
-        layers={layers}
-        onClick={handleClick}
-        getCursor={({ isDragging, isHovering }) =>
-          isDragging ? "grabbing" : isHovering ? "pointer" : "grab"
-        }
-        style={{ position: "absolute", inset: 0 }}
-        glOptions={{ alpha: true }}
-        parameters={{ blend: true }}
-        useDevicePixels={true}
-      />
 
       <div className="absolute top-4 left-4 z-10 flex flex-col gap-3">
         <ControlPanel
