@@ -1,12 +1,12 @@
 -- =============================================================================
--- FILE: database/schema_no_postgis.sql
+-- FILE: database/01_schema.sql
 -- PURPOSE: Schema without PostGIS/H3 extensions for plain PostgreSQL 18.
 --
 -- The Python simulator handles H3 indexing via the `h3` Python library.
 -- lat/lng are stored as plain NUMERIC columns (no PostGIS GEOMETRY needed).
 --
 -- HOW TO RUN:
---   psql -U postgres -d eta_sih_db -f database/schema_no_postgis.sql
+--   psql -U postgres -d eta_sih_db -f database/01_schema.sql
 -- =============================================================================
 
 -- Drop tables in reverse dependency order for clean re-runs.
