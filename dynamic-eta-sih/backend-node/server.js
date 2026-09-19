@@ -194,6 +194,20 @@ async function fetchCongestionSnapshot() {
   }
 }
 
+async function fetchAllDynamicETAs() {
+  try {
+    const res = await axios.get(`${PYTHON_API_URL}/api/v1/ml/all_trains_eta`, {
+      timeout: 30_000,
+    });
+    return new Map(
+      (res.data.trains || []).map(eta => [Number(eta.train_id), eta])
+    );
+  } catch (err) {
+    console.error("[ETA] Batch request failed:", err.message);
+    return new Map();
+  }
+}
+
 // =============================================================================
 // CORE POLLER — runs every POLL_INTERVAL_MS
 // This is the heart of Phase 4: reads DB, fetches ETAs, broadcasts to clients.
@@ -215,19 +229,22 @@ async function fetchCongestionSnapshot() {
 async function pollAndBroadcast() {
   // Skip if no clients are connected — saves DB + API calls
   if (io.engine.clientsCount === 0) return;
+  if (pollInFlight) return;
+  pollInFlight = true;
 
   try {
     // Step 1 — Fetch fresh positions from PostgreSQL
     const trains = await dbFetchAllTrainsWithTelemetry();
 
-    // Step 2 — Fetch dynamic ETAs from FastAPI in parallel
-    const etaResults = await Promise.all(
-      trains.map(t => fetchDynamicETA(t.train_id))
-    );
+    // Step 2 — Fetch all dynamic ETAs in one request to avoid free-tier overload
+    const etaResults = await fetchAllDynamicETAs();
 
     // Step 3 — Merge location + ETA into one payload per train
-    const payload = trains.map((train, idx) => {
-      const eta = etaResults[idx];
+    const payload = trains.map((train) => {
+      const eta = etaResults.get(Number(train.train_id)) || {
+        error: true,
+        status: "UNKNOWN",
+      };
       return {
         // Identity
         train_id: train.train_id,
@@ -271,11 +288,14 @@ async function pollAndBroadcast() {
       timestamp: new Date().toISOString(),
       message: "Node.js gateway poll failed — retrying next interval.",
     });
+  } finally {
+    pollInFlight = false;
   }
 }
 
 // Start the polling loop after a short delay (let DB pool warm up)
 let pollerHandle = null;
+let pollInFlight = false;
 
 function startPoller() {
   if (pollerHandle) return;  // already running
