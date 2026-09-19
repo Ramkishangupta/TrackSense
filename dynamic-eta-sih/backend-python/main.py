@@ -30,6 +30,19 @@ load_dotenv()
 from app.core.database import test_connection
 from app.api.eta_router import router as eta_router
 
+simulator_thread = None
+simulator_error = None
+
+
+def run_embedded_simulator():
+    global simulator_error
+    try:
+        from app.simulator.generator import main as run_simulator
+        run_simulator()
+    except Exception as exc:
+        simulator_error = str(exc)
+        print(f"  [FastAPI] Simulator stopped: {exc}", flush=True)
+
 # =============================================================================
 # APP FACTORY
 # =============================================================================
@@ -80,13 +93,13 @@ async def startup_event():
     if ok:
         print("  [FastAPI] Connected to PostgreSQL successfully.")
         if os.getenv("ENABLE_SIMULATOR", "false").lower() == "true":
-            from app.simulator.generator import main as run_simulator
-
-            threading.Thread(
-                target=run_simulator,
+            global simulator_thread
+            simulator_thread = threading.Thread(
+                target=run_embedded_simulator,
                 name="eta-simulator",
                 daemon=True,
-            ).start()
+            )
+            simulator_thread.start()
             print("  [FastAPI] Embedded simulator started.")
     else:
         print("  [FastAPI] WARNING: Could not connect to PostgreSQL. Check .env DATABASE_URL.")
@@ -107,6 +120,11 @@ def health_check():
         "service": "backend-python",
         "version": "0.6.0",
         "phase":   "Phase 6 — ETA Inference + RAG Copilot Active",
+        "simulator": {
+            "enabled": os.getenv("ENABLE_SIMULATOR", "false").lower() == "true",
+            "running": bool(simulator_thread and simulator_thread.is_alive()),
+            "error": simulator_error,
+        },
         "endpoints": {
             "baseline_eta":       "/api/v1/ml/baseline_eta?train_id=<int>",
             "dynamic_eta":        "/api/v1/ml/dynamic_eta?train_id=<int>",

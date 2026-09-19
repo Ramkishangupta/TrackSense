@@ -34,7 +34,7 @@ services:
           type: web
           envVarKey: DATABASE_URL
       - key: PYTHON_API_URL
-        value: http://tracksense-python:10000
+        value: https://tracksense-python.onrender.com
       - key: CORS_ORIGIN
         value: https://tracksense-frontend.onrender.com
       - key: POLL_INTERVAL_MS
