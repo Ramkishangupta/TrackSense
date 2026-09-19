@@ -200,7 +200,7 @@ async function fetchAllDynamicETAs() {
       timeout: 30_000,
     });
     return new Map(
-      (res.data.trains || []).map(eta => [Number(eta.train_id), eta])
+      (res.data.trains || []).map(eta => [String(eta.train_no), eta])
     );
   } catch (err) {
     console.error("[ETA] Batch request failed:", err.message);
@@ -241,7 +241,7 @@ async function pollAndBroadcast() {
 
     // Step 3 — Merge location + ETA into one payload per train
     const payload = trains.map((train) => {
-      const eta = etaResults.get(Number(train.train_id)) || {
+      const eta = etaResults.get(String(train.train_no)) || {
         error: true,
         status: "UNKNOWN",
       };
