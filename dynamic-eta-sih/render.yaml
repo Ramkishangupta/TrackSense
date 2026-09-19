@@ -45,7 +45,7 @@ services:
     runtime: static
     rootDir: dynamic-eta-sih/frontend
     buildCommand: npm ci && npm run build
-    staticPublishPath: dynamic-eta-sih/frontend/dist
+    staticPublishPath: dist
     envVars:
       - key: VITE_NODE_URL
         value: https://tracksense-node.onrender.com
