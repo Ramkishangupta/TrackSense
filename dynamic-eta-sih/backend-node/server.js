@@ -32,22 +32,22 @@
 
 "use strict";
 
-const express    = require("express");
-const http       = require("http");
+const express = require("express");
+const http = require("http");
 const { Server } = require("socket.io");
-const cors       = require("cors");
-const axios      = require("axios");
-const { Pool }   = require("pg");
+const cors = require("cors");
+const axios = require("axios");
+const { Pool } = require("pg");
 require("dotenv").config();
 
 // =============================================================================
 // CONFIG
 // =============================================================================
 
-const PORT             = parseInt(process.env.PORT           || "5000", 10);
-const PYTHON_API_URL   = process.env.PYTHON_API_URL          || "http://localhost:8000";
+const PORT = parseInt(process.env.PORT || "5000", 10);
+const PYTHON_API_URL = process.env.PYTHON_API_URL || "http://localhost:8000";
 const POLL_INTERVAL_MS = parseInt(process.env.POLL_INTERVAL_MS || "5000", 10);
-const CORS_ORIGIN      = process.env.CORS_ORIGIN             || "*";
+const CORS_ORIGIN = process.env.CORS_ORIGIN || "*";
 
 // =============================================================================
 // POSTGRESQL CONNECTION POOL
@@ -56,15 +56,23 @@ const CORS_ORIGIN      = process.env.CORS_ORIGIN             || "*";
 // =============================================================================
 
 const pool = new Pool({
-  host:     process.env.PG_HOST     || "localhost",
-  port:     parseInt(process.env.PG_PORT || "5432", 10),
+  host: process.env.PG_HOST || "localhost",
+  port: parseInt(process.env.PG_PORT || "5432", 10),
   database: process.env.PG_DATABASE || "eta_sih_db",
-  user:     process.env.PG_USER     || "postgres",
+  user: process.env.PG_USER || "postgres",
   password: process.env.PG_PASSWORD || "",
-  max:      5,
+  max: 5,
+  ssl: {
+    rejectUnauthorized: false,
+  },
   // If a query takes >10s something is seriously wrong — fail fast.
   connectionTimeoutMillis: 10_000,
-  idleTimeoutMillis:       30_000,
+  idleTimeoutMillis: 30_000,
+});
+
+// Prevent transient idle-client disconnects from crashing the gateway.
+pool.on("error", (err) => {
+  console.error("[DB] PostgreSQL pool error:", err.message);
 });
 
 // Test DB connectivity on startup
@@ -82,7 +90,7 @@ pool.connect()
 // EXPRESS + SOCKET.IO SETUP
 // =============================================================================
 
-const app    = express();
+const app = express();
 const server = http.createServer(app);
 
 // Socket.io — attach to the same HTTP server so we don't need a separate port.
@@ -92,7 +100,7 @@ const io = new Server(server, {
     methods: ["GET", "POST"],
   },
   // Reconnection is handled client-side; server just sets ping timeout.
-  pingTimeout:  60_000,
+  pingTimeout: 60_000,
   pingInterval: 25_000,
 });
 
@@ -157,9 +165,9 @@ async function fetchDynamicETA(trainId) {
   } catch (err) {
     // Return a stub so the frontend still gets location data even if ETA fails
     return {
-      error:        true,
-      trip_id:      `TRAIN-${trainId}`,
-      status:       "UNKNOWN",
+      error: true,
+      trip_id: `TRAIN-${trainId}`,
+      status: "UNKNOWN",
       total_eta_min: null,
       expected_arrival: null,
       delay_seconds: null,
@@ -218,38 +226,38 @@ async function pollAndBroadcast() {
       const eta = etaResults[idx];
       return {
         // Identity
-        train_id:          train.train_id,
-        train_no:          train.train_no,
-        train_name:        train.train_name,
-        train_type:        train.train_type,
+        train_id: train.train_id,
+        train_no: train.train_no,
+        train_name: train.train_name,
+        train_type: train.train_type,
         // Live location (from PostgreSQL)
-        current_lat:       parseFloat(train.current_lat),
-        current_lng:       parseFloat(train.current_lng),
-        current_speed:     parseFloat(train.current_speed  || 0),
-        delay_minutes:     parseInt(train.delay_minutes    || 0, 10),
-        h3_index:          train.h3_index,
-        recorded_at:       train.recorded_at,
+        current_lat: parseFloat(train.current_lat),
+        current_lng: parseFloat(train.current_lng),
+        current_speed: parseFloat(train.current_speed || 0),
+        delay_minutes: parseInt(train.delay_minutes || 0, 10),
+        h3_index: train.h3_index,
+        recorded_at: train.recorded_at,
         // Dynamic ETA (from FastAPI — may be null if FastAPI is down)
-        total_eta_min:         eta.total_eta_min         ?? null,
-        expected_arrival:      eta.expected_arrival       ?? null,
-        delay_seconds:         eta.delay_seconds          ?? null,
-        status:                eta.status                 ?? "UNKNOWN",
-        remaining_km:          eta.remaining_km           ?? null,
-        congestion_count:      eta.congestion_count       ?? null,
-        congestion_penalty_min:eta.congestion_penalty_min ?? null,
-        anomaly_event:         eta.anomaly_event          ?? null,
-        anomaly_penalty_min:   eta.anomaly_penalty_min    ?? null,
-        model_used:            eta.model_used             ?? null,
+        total_eta_min: eta.total_eta_min ?? null,
+        expected_arrival: eta.expected_arrival ?? null,
+        delay_seconds: eta.delay_seconds ?? null,
+        status: eta.status ?? "UNKNOWN",
+        remaining_km: eta.remaining_km ?? null,
+        congestion_count: eta.congestion_count ?? null,
+        congestion_penalty_min: eta.congestion_penalty_min ?? null,
+        anomaly_event: eta.anomaly_event ?? null,
+        anomaly_penalty_min: eta.anomaly_penalty_min ?? null,
+        model_used: eta.model_used ?? null,
         // Handy flag for the frontend to show a warning badge
-        eta_available:         !eta.error,
+        eta_available: !eta.error,
       };
     });
 
     // Step 4 — Broadcast to all connected React clients
     io.emit("train_updates", {
-      timestamp:    new Date().toISOString(),
-      train_count:  payload.length,
-      trains:       payload,
+      timestamp: new Date().toISOString(),
+      train_count: payload.length,
+      trains: payload,
     });
 
   } catch (err) {
@@ -257,7 +265,7 @@ async function pollAndBroadcast() {
     console.error("[Poller] Error during poll cycle:", err.message);
     io.emit("server_error", {
       timestamp: new Date().toISOString(),
-      message:   "Node.js gateway poll failed — retrying next interval.",
+      message: "Node.js gateway poll failed — retrying next interval.",
     });
   }
 }
@@ -303,11 +311,11 @@ io.on("connection", (socket) => {
 /** Liveness probe — used by Docker healthchecks or the Python service itself. */
 app.get("/health", (req, res) => {
   res.json({
-    status:  "ok",
+    status: "ok",
     service: "backend-node",
     version: "1.0.0",
-    phase:   "Phase 4 — WebSocket Gateway Active",
-    port:    PORT,
+    phase: "Phase 4 — WebSocket Gateway Active",
+    port: PORT,
     python_api: PYTHON_API_URL,
     poll_interval_ms: POLL_INTERVAL_MS,
   });
@@ -417,11 +425,11 @@ app.get("/api/routes/corridors", async (req, res) => {
 
     // corridor metadata (colour is consumed by the frontend)
     const meta = {
-      1:  { name: "North Corridor (NDLS → CNB)",   color: [30,  64, 175, 220] },
-      6:  { name: "West Corridor (CSTM → JHS)",    color: [126, 34, 206, 220] },
-      11: { name: "East Corridor (HWH → PRYJ)",    color: [5,  150, 105, 220] },
-      16: { name: "South Corridor (NGP → CNB)",    color: [220, 38,  38, 220] },
-      21: { name: "Central Corridor (LKO → PRYJ)", color: [217, 119,  6, 220] },
+      1: { name: "North Corridor (NDLS → CNB)", color: [30, 64, 175, 220] },
+      6: { name: "West Corridor (CSTM → JHS)", color: [126, 34, 206, 220] },
+      11: { name: "East Corridor (HWH → PRYJ)", color: [5, 150, 105, 220] },
+      16: { name: "South Corridor (NGP → CNB)", color: [220, 38, 38, 220] },
+      21: { name: "Central Corridor (LKO → PRYJ)", color: [217, 119, 6, 220] },
     };
 
     // Group rows by train_id (= one corridor per train_id)
@@ -435,10 +443,10 @@ app.get("/api/routes/corridors", async (req, res) => {
         };
       }
       grouped[row.train_id].stations.push({
-        code:     row.code,
-        name:     row.name,
-        lat:      row.lat,
-        lng:      row.lng,
+        code: row.code,
+        name: row.name,
+        lat: row.lat,
+        lng: row.lng,
         sequence: row.station_sequence,
       });
     });
@@ -472,39 +480,39 @@ app.post("/api/reset-demo", async (req, res) => {
     // Re-insert seed positions (matches seed_telemetry.sql exactly)
     const seeds = [
       // Route 1 (NDLS -> CNB)
-      [1, 28.6418, 77.2171, 130.00,  0, '873da1ab2ffffff'],
-      [2, 28.6685, 77.4372,  95.00, 18, '873dae123ffffff'],
-      [3, 27.8805, 78.0799,  90.00, 42, '873db87c5ffffff'],
+      [1, 28.6418, 77.2171, 130.00, 0, '873da1ab2ffffff'],
+      [2, 28.6685, 77.4372, 95.00, 18, '873dae123ffffff'],
+      [3, 27.8805, 78.0799, 90.00, 42, '873db87c5ffffff'],
       [4, 27.2091, 78.2567, 115.00, 10, '873db9ac1ffffff'],
-      [5, 26.5000, 80.3000, 130.00,  0, '873d8c39effffff'],
+      [5, 26.5000, 80.3000, 130.00, 0, '873d8c39effffff'],
 
       // Route 2 (CSTM -> JHS)
       [6, 18.9403, 72.8355, 110.00, 15, '873da1ab2ffffff'],
       [7, 21.0455, 75.8011, 105.00, 10, '873dae123ffffff'],
-      [8, 22.6184, 77.7712,  95.00,  0, '873db87c5ffffff'],
-      [9, 23.2599, 77.4126,  90.00, 20, '873db9ac1ffffff'],
-      [10, 24.1683, 78.1884, 110.00,  5, '873d8c39effffff'],
+      [8, 22.6184, 77.7712, 95.00, 0, '873db87c5ffffff'],
+      [9, 23.2599, 77.4126, 90.00, 20, '873db9ac1ffffff'],
+      [10, 24.1683, 78.1884, 110.00, 5, '873d8c39effffff'],
 
       // Route 3 (HWH -> PRYJ)
-      [11, 22.5832, 88.3427, 100.00,  0, '873da1ab2ffffff'],
-      [12, 23.7925, 86.4320,  95.00, 15, '873dae123ffffff'],
-      [13, 24.7955, 85.0000,  90.00, 30, '873db87c5ffffff'],
-      [14, 25.2818, 83.1189,  80.00, 55, '873db9ac1ffffff'],
-      [15, 25.4000, 82.0000, 120.00,  5, '873d8c39effffff'],
+      [11, 22.5832, 88.3427, 100.00, 0, '873da1ab2ffffff'],
+      [12, 23.7925, 86.4320, 95.00, 15, '873dae123ffffff'],
+      [13, 24.7955, 85.0000, 90.00, 30, '873db87c5ffffff'],
+      [14, 25.2818, 83.1189, 80.00, 55, '873db9ac1ffffff'],
+      [15, 25.4000, 82.0000, 120.00, 5, '873d8c39effffff'],
 
       // Route 4 (NGP -> CNB)
-      [16, 21.1500, 79.0833, 115.00,  0, '873da1ab2ffffff'],
+      [16, 21.1500, 79.0833, 115.00, 0, '873da1ab2ffffff'],
       [17, 22.6184, 77.7712, 100.00, 20, '873dae123ffffff'],
-      [18, 25.4489, 78.5690, 110.00,  0, '873db87c5ffffff'],
+      [18, 25.4489, 78.5690, 110.00, 0, '873db87c5ffffff'],
       [19, 25.9928, 79.4674, 115.00, 12, '873db9ac1ffffff'],
-      [20, 26.4000, 80.2000,  90.00, 35, '873d8c39effffff'],
+      [20, 26.4000, 80.2000, 90.00, 35, '873d8c39effffff'],
 
       // Route 5 (LKO -> PRYJ)
-      [21, 26.8306, 80.9238,  95.00,  0, '873da1ab2ffffff'],
-      [22, 26.2307, 81.2407,  90.00, 10, '873dae123ffffff'],
-      [23, 25.9189, 81.9839,  85.00, 25, '873db87c5ffffff'],
-      [24, 25.5000, 81.8500, 110.00,  5, '873db9ac1ffffff'],
-      [25, 25.4467, 81.8407,  90.00,  0, '873d8c39effffff'],
+      [21, 26.8306, 80.9238, 95.00, 0, '873da1ab2ffffff'],
+      [22, 26.2307, 81.2407, 90.00, 10, '873dae123ffffff'],
+      [23, 25.9189, 81.9839, 85.00, 25, '873db87c5ffffff'],
+      [24, 25.5000, 81.8500, 110.00, 5, '873db9ac1ffffff'],
+      [25, 25.4467, 81.8407, 90.00, 0, '873d8c39effffff'],
     ];
 
     for (const [tid, lat, lng, spd, dly, h3] of seeds) {
@@ -555,7 +563,7 @@ server.listen(PORT, () => {
 });
 
 // Graceful shutdown — release DB pool and stop poller cleanly
-process.on("SIGINT",  () => gracefulShutdown("SIGINT"));
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
 
 function gracefulShutdown(signal) {

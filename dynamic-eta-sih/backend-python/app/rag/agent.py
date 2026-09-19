@@ -43,11 +43,13 @@ LLM PROVIDER:
 from __future__ import annotations
 
 import os
+import re
 from typing import Optional
 
 from langchain_community.utilities import SQLDatabase
 from langchain_community.agent_toolkits import create_sql_agent
 from langchain_groq import ChatGroq
+from sqlalchemy import create_engine, text
 
 # ---------------------------------------------------------------------------
 # CONFIGURATION
@@ -100,6 +102,98 @@ TABLE SCHEMA HINTS:
 # ---------------------------------------------------------------------------
 
 _agent = None  # Module-level singleton
+_sql_engine = None
+EVENT_LABELS = {
+    "weather_fog": "Dense fog",
+    "unscheduled_halt": "Unscheduled halt",
+    "signal_halt": "Signal halt",
+    "chain_pulling": "Chain pulling incident",
+    "track_maintenance": "Track maintenance",
+}
+
+
+def _answer_train_delay(query: str, db_url: str) -> Optional[str]:
+    """Answer train-specific delay questions with one deterministic query."""
+    if "delay" not in query.lower():
+        return None
+
+    train_match = re.search(r"\b\d{4,6}\b", query)
+    if not train_match:
+        return None
+
+    global _sql_engine
+    if _sql_engine is None:
+        _sql_engine = create_engine(db_url, pool_pre_ping=True)
+
+    statement = text("""
+        SELECT
+            t.train_no,
+            t.name,
+            COALESCE(lt.delay_minutes, 0) AS delay_minutes,
+            event_history.event_history
+        FROM trains t
+        LEFT JOIN live_telemetry lt ON lt.train_id = t.id
+        LEFT JOIN LATERAL (
+            SELECT COALESCE(
+                JSON_AGG(
+                    JSON_BUILD_OBJECT(
+                        'event_type', recent.event_type,
+                        'description', COALESCE(recent.description, ''),
+                        'is_active', recent.is_active
+                    ) ORDER BY recent.created_at DESC
+                ),
+                '[]'::json
+            ) AS event_history
+            FROM (
+                SELECT event_type, description, is_active, created_at
+                FROM events_log
+                WHERE train_id = t.id
+                ORDER BY created_at DESC
+                LIMIT 8
+            ) AS recent
+        ) AS event_history ON TRUE
+        WHERE t.train_no = :train_no
+    """)
+
+    with _sql_engine.connect() as connection:
+        row = connection.execute(statement, {"train_no": train_match.group()}).mappings().first()
+
+    if row is None:
+        return f"I could not find train {train_match.group()} in the live train registry."
+
+    delay = int(row["delay_minutes"] or 0)
+    response = (
+        f"**{row['train_no']} - {row['name']}** is delayed by **{delay} minutes**."
+    )
+
+    active_lines = []
+    previous_lines = []
+    seen_events = set()
+    for event in row["event_history"] or []:
+        label = EVENT_LABELS.get(event["event_type"], event["event_type"].replace("_", " ").title())
+        description = event["description"].strip().rstrip(".")
+        if description.lower().startswith(label.lower()):
+            description = description[len(label):].lstrip(": ")
+        event_text = f"{label}: {description}" if description else label
+        if event_text in seen_events:
+            continue
+        seen_events.add(event_text)
+        if event["is_active"]:
+            active_lines.append(event_text)
+        else:
+            previous_lines.append(event_text)
+
+    if active_lines:
+        response += "\n\n**Current reason:**\n" + "\n".join(
+            f"- {event}." for event in active_lines
+        )
+    if previous_lines:
+        response += "\n\n**Previous events:**\n" + "\n".join(
+            f"- Resolved: {event}." for event in previous_lines
+        )
+    if not active_lines and not previous_lines:
+        response += "\n\nNo active operational event is recorded for this train."
+    return response
 
 
 def _build_agent():
@@ -124,7 +218,7 @@ def _build_agent():
         api_key=groq_key,
         model_name="qwen/qwen3.8-27b",
         temperature=0,            # Deterministic SQL generation
-        max_tokens=1024,
+        max_tokens=800,
     )
 
     # ── SQLDatabase wrapper (read-only, limited tables) ─────────────────
@@ -175,6 +269,15 @@ def ask_copilot(query: str) -> dict:
             - error:    Error message if something went wrong.
     """
     try:
+        db_url = os.getenv("DATABASE_URL", "")
+        direct_response = _answer_train_delay(query, db_url)
+        if direct_response is not None:
+            return {
+                "query": query,
+                "response": direct_response,
+                "error": None,
+            }
+
         agent = get_agent()
         result = agent.invoke({"input": query})
 
