@@ -1,0 +1,49 @@
+services:
+  - type: web
+    name: tracksense-python
+    runtime: python
+    rootDir: backend-python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: ENABLE_SIMULATOR
+        value: "true"
+      - key: SIMULATOR_TICK_INTERVAL
+        value: "10"
+      - key: SIMULATOR_TIME_ACCELERATION
+        value: "300"
+
+  - type: web
+    name: tracksense-node
+    runtime: node
+    rootDir: backend-node
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: PYTHON_API_URL
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
+      - key: POLL_INTERVAL_MS
+        value: "5000"
+
+  - type: static
+    name: tracksense-frontend
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_NODE_URL
+        sync: false
+      - key: VITE_PYTHON_URL
+        sync: false

@@ -19,6 +19,7 @@ HOW TO RUN:
 
 
 import os
+import threading
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -78,6 +79,15 @@ async def startup_event():
     ok = test_connection()
     if ok:
         print("  [FastAPI] Connected to PostgreSQL successfully.")
+        if os.getenv("ENABLE_SIMULATOR", "false").lower() == "true":
+            from app.simulator.generator import main as run_simulator
+
+            threading.Thread(
+                target=run_simulator,
+                name="eta-simulator",
+                daemon=True,
+            ).start()
+            print("  [FastAPI] Embedded simulator started.")
     else:
         print("  [FastAPI] WARNING: Could not connect to PostgreSQL. Check .env DATABASE_URL.")
 
