@@ -2,7 +2,7 @@ services:
   - type: web
     name: tracksense-python
     runtime: python
-    rootDir: backend-python
+    rootDir: dynamic-eta-sih/backend-python
     plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
@@ -22,7 +22,7 @@ services:
   - type: web
     name: tracksense-node
     runtime: node
-    rootDir: backend-node
+    rootDir: dynamic-eta-sih/backend-node
     plan: free
     buildCommand: npm ci
     startCommand: npm start
@@ -43,9 +43,9 @@ services:
   - type: web
     name: tracksense-frontend
     runtime: static
-    rootDir: frontend
+    rootDir: dynamic-eta-sih/frontend
     buildCommand: npm ci && npm run build
-    staticPublishPath: dist
+    staticPublishPath: dynamic-eta-sih/frontend/dist
     envVars:
       - key: VITE_NODE_URL
         value: https://tracksense-node.onrender.com
