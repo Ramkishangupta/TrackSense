@@ -197,7 +197,7 @@ async function fetchCongestionSnapshot() {
 async function fetchAllDynamicETAs() {
   try {
     const res = await axios.get(`${PYTHON_API_URL}/api/v1/ml/all_trains_eta`, {
-      timeout: 30_000,
+      timeout: 8_000,
     });
     return new Map(
       (res.data.trains || []).map(eta => [String(eta.train_no), eta])
@@ -205,6 +205,39 @@ async function fetchAllDynamicETAs() {
   } catch (err) {
     console.error("[ETA] Batch request failed:", err.message);
     return new Map();
+  }
+}
+
+const etaCache = new Map();
+let etaCacheUpdatedAt = 0;
+const ETA_REFRESH_INTERVAL_MS = parseInt(
+  process.env.ETA_REFRESH_INTERVAL_MS || "60000",
+  10
+);
+
+function fallbackETA(train) {
+  const delay = parseInt(train.delay_minutes || 0, 10);
+  let status = "ON_TIME";
+  if (delay > 45) status = "MAJOR_DELAY";
+  else if (delay > 15) status = "MODERATE_DELAY";
+  else if (delay > 0) status = "MINOR_DELAY";
+
+  return {
+    error: true,
+    status,
+    total_eta_min: null,
+    expected_arrival: null,
+    delay_seconds: delay * 60,
+  };
+}
+
+async function refreshEtaCache() {
+  if (Date.now() - etaCacheUpdatedAt < ETA_REFRESH_INTERVAL_MS) return;
+
+  const latest = await fetchAllDynamicETAs();
+  if (latest.size > 0) {
+    latest.forEach((eta, trainNo) => etaCache.set(trainNo, eta));
+    etaCacheUpdatedAt = Date.now();
   }
 }
 
@@ -236,15 +269,14 @@ async function pollAndBroadcast() {
     // Step 1 — Fetch fresh positions from PostgreSQL
     const trains = await dbFetchAllTrainsWithTelemetry();
 
-    // Step 2 — Fetch all dynamic ETAs in one request to avoid free-tier overload
-    const etaResults = await fetchAllDynamicETAs();
+    // Step 2 — Refresh expensive AI ETA data occasionally. DB telemetry still
+    // broadcasts every cycle, so a sleeping/overloaded Python service cannot
+    // freeze the live dashboard.
+    await refreshEtaCache();
 
     // Step 3 — Merge location + ETA into one payload per train
     const payload = trains.map((train) => {
-      const eta = etaResults.get(String(train.train_no)) || {
-        error: true,
-        status: "UNKNOWN",
-      };
+      const eta = etaCache.get(String(train.train_no)) || fallbackETA(train);
       return {
         // Identity
         train_id: train.train_id,

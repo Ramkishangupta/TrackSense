@@ -39,6 +39,8 @@ services:
         value: https://tracksense-frontend.onrender.com
       - key: POLL_INTERVAL_MS
         value: "5000"
+      - key: ETA_REFRESH_INTERVAL_MS
+        value: "60000"
 
   - type: web
     name: tracksense-frontend
